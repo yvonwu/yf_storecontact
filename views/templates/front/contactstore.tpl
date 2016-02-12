@@ -26,7 +26,7 @@
 		</li>
 	</ul>
 {else}
-
+   {include file="$tpl_dir./errors.tpl"}
 
 {capture name=path}{l s='Contact'}{/capture}
 <h1 class="page-heading bottom-indent">
@@ -47,7 +47,7 @@
 										 	 <select id="id_store" class="form-control" name="id_store">
 													<option value="0">{l s='-- Choose --' mod='yf_storecontact'}</option>
 														{foreach from=$stores item=store}
-                                                        	<option value="{$store.id_store|escape:'html':'UTF-8'}">{$store.name|escape:'html':'UTF-8'}</option>
+                                                        	<option value="{$store.id_store|escape:'html':'UTF-8'}">{$store.city|escape:'html':'UTF-8'|upper}</option>
 														{/foreach}
 
  
@@ -63,7 +63,7 @@
 													<option value="0">{l s='-- Choose --' mod='yf_storecontact'}</option>
 
 													{foreach from=$subjectMails item=subjectMail}
-                                                        	<option value="" >{$subjectMail|escape:'html':'UTF-8'}</option>
+                                                        	<option value="{$subjectMail.id_contact|escape:'html':'UTF-8'}" >{$subjectMail.name|escape:'html':'UTF-8'}</option>
 														{/foreach}
 							
 									</select>
