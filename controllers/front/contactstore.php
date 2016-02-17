@@ -14,38 +14,45 @@ class Yf_storeContactContactStoreModuleFrontController extends ModuleFrontContro
         
     	$this->display_column_left = false;
 
-        parent::initContent();
+      parent::initContent();
     	  
        if(Tools::getValue('storeid')){
        
-             $stores =  array(Tools::getValue('storeid'));
+             $store =  new Store(Tools::getValue('storeid'),(int)$this->context->language->id);
+
+          if($store->name && $store->email){
+             $store->storeid = Tools::getValue('storeid');
+             $this->context->smarty->assign('store', $store);
+           }
+
+        }
       
-         }else{ 
-
-             $stores = $this->getAllSotres();
-
-        
-           //  $stores = array( array( 'id_store' => 1,'name' =>'store 1'),array( 'id_store' => 2,'name' =>'store 2'),array( 'id_store' => 3,'name' =>'store 3'));
-       }
 
 
-       if(Tools::getValue('subjectMails')){
+        $stores = $this->getAllSotres();
 
-        $subjectMails = array(Tools::getValue('subjectMails'));
-        
 
-       }else{
+
+   
+      if($subjectMail = $this->getContact((int)Tools::getValue('objectid'),(int)$this->context->language->id))
+                 $this->context->smarty->assign('subjectMail', $subjectMail);
+               
+       
                 
-            $subjectMails = $this->getContacts((int)$this->context->language->id);    
-            p($subjectMails);
-         //  $subjectMails = array('store 1','store 2','store 3');
+        $subjectMails = $this->getContacts((int)$this->context->language->id);    
 
-       }
+  
 
         $this->context->smarty->assign(array(
 
           'stores' => $stores,
           'subjectMails' => $subjectMails,
+           'message' => html_entity_decode(Tools::getValue('message')),
+           'name' => html_entity_decode(Tools::getValue('name')),
+           'firstName' => html_entity_decode(Tools::getValue('firstName')),
+           'telephone' => html_entity_decode(Tools::getValue('telephone')),
+           'email' => html_entity_decode(Tools::getValue('email')),
+
 
 
           ));
@@ -60,43 +67,72 @@ class Yf_storeContactContactStoreModuleFrontController extends ModuleFrontContro
        if (Tools::isSubmit('submitMessage')){
 
             $message = Tools::getValue('message');
+            $telephone = Tools::getValue('telephone');
             if(!$message)
-             $this->errors[] = Tools::displayError('The message cannot be blank.');
+               $this->errors[] = Tools::displayError('The message cannot be blank.');
             elseif (!Validate::isCleanHtml($message))
-             $this->errors[] = Tools::displayError('Invalid message');
+               $this->errors[] = Tools::displayError('Invalid message');
+            elseif (!($id_subject = (int)Tools::getValue('id_subject')) || !(is_array($subjectMails = $this->getContact($id_subject, $this->context->language->id))))
+               $this->errors[] = Tools::displayError('Please select a subject from the list provided. ');
+            elseif (!($id_store = (int)Tools::getValue('id_store')) || !(Validate::isLoadedObject($store = new Store($id_store, $this->context->language->id))))
+               $this->errors[] = Tools::displayError('Please select a sotre from the list provided.');
+            elseif(!Tools::getValue('name'))
+                $this->errors[] = Tools::displayError('The name cannot be blank');
+            elseif(!Tools::getValue('firstName'))
+                $this->errors[] = Tools::displayError('The firstName cannot be blank');
 
+            elseif( !($email = Tools::getValue('email')) || !Validate::isEmail($email))
+                $this->errors[] = Tools::displayError('Invalid email');
 
-
-            else{
-
-
+            elseif (!Validate::isPhoneNumber($telephone))
+                $this->errors[] = Tools::displayError('Invalid telephone');
           
 
+          
+                  
+            
+           
+
+             else{
 
 
+                    $StoreEmail= $store->email;
+                    $name = Tools::getValue('name');
+                    $firstName = Tools::getValue('firstName');
+                    
 
-              $name = Tools::getValue('name');
-              $firstName = Tools::getValue('firstName');
-              $telephone = Tools::getValue('telephone');
-             // $message = Tools::getValue('message');
+                  if (!count($this->errors))
+                  {
+                    $var_list = array(
+                        '{name}' => $name,
+                        '{firstName}' => $firstName ,
+                        '{telephone}' => $telephone  ,
+                        '{subjectMails}' => $subjectMails['name'],
+                        '{message}' => Tools::nl2br(stripslashes($message)),
+                        '{email}' => $email,
+                      );
+                  
 
-              $var_list = array(
-                  '{order_name}' => '-',
-                  '{attached_file}' => '-',
-                  '{message}' => Tools::nl2br(stripslashes($message)),
-                  '{email}' =>  'wuyifan2003@hotmail.com',
-                  '{product_name}' => '',
-                );
+                  if( !Mail::Send($this->context->language->id,'contactstore', Mail::l('Your message has been correctly sent'),$var_list, $StoreEmail, null, null, null, null) ||
+                    !Mail::Send($this->context->language->id,'contactstore', Mail::l('Your message has been correctly sent'),$var_list, $subjectMails['email'], null, null, null, null)) 
+                        $this->errors[] = Tools::displayError('An error occurred while sending the message.');
+                
 
-             Mail::Send($this->context->language->id,'contact_form', Mail::l('Your message has been correctly sent'),$var_list, 'wuyifan2003@hotmail.com', null, null, null, null);
-        
-    
-      
-           // p($this->errors);
-            if (count($this->errors) > 1)
-              array_unique($this->errors);
-            elseif (!count($this->errors))
-              $this->context->smarty->assign('confirmation', 1);
+                  }
+
+                  if(Tools::getValue('receive_copy'))
+                       Mail::Send($this->context->language->id,'contactstore', Mail::l('Your message has been correctly sent'),$var_list, $email, null, null, null, null);
+
+               
+            
+            
+                 // p($this->errors);
+
+
+                  if (count($this->errors) > 1)
+                    array_unique($this->errors);
+                  elseif (!count($this->errors))
+                    $this->context->smarty->assign('confirmation', 1);
 
           }
        }
@@ -106,10 +142,12 @@ class Yf_storeContactContactStoreModuleFrontController extends ModuleFrontContro
 
     public function setMedia()
 	{
-	  parent::setMedia();
+	 
+    parent::setMedia();
     $this->addCSS(_THEME_CSS_DIR_.'contact-form.css');
     $this->addJS(_THEME_JS_DIR_.'contact-form.js');
     $this->addJS(_PS_JS_DIR_.'validate.js');
+    $this->addJS('https://www.google.com/recaptcha/api.js');
 
 	}
 
@@ -121,7 +159,7 @@ class Yf_storeContactContactStoreModuleFrontController extends ModuleFrontContro
       '.Shop::addSqlAssociation('store', 's').'
       LEFT JOIN '._DB_PREFIX_.'country_lang cl ON (cl.id_country = s.id_country)
       LEFT JOIN '._DB_PREFIX_.'state st ON (st.id_state = s.id_state)
-      WHERE s.active = 1 AND cl.id_lang = '.(int)$this->context->language->id);
+      WHERE s.active = 1 AND s.email != "" AND cl.id_lang = '.(int)$this->context->language->id);
 
 
      return $stores;
@@ -131,15 +169,31 @@ class Yf_storeContactContactStoreModuleFrontController extends ModuleFrontContro
 
     $shop_ids = Shop::getContextListShopID();
     $sql = 'SELECT *
-        FROM `'._DB_PREFIX_.'contact` c
-        '.Shop::addSqlAssociation('contact', 'c', false).'
-        LEFT JOIN `'._DB_PREFIX_.'contact_lang` cl ON (c.`id_contact` = cl.`id_contact`)
+        FROM `'._DB_PREFIX_.'contactstore` c
+        LEFT JOIN ps_contactstore_shop contact_shop ON (contact_shop.id_contact = c.id_contact AND contact_shop.id_shop = 1)
+        LEFT JOIN `'._DB_PREFIX_.'contactstore_lang` cl ON (c.`id_contact` = cl.`id_contact`)
         WHERE cl.`id_lang` = '.(int)$id_lang.'
         AND contact_shop.`id_shop` IN ('.implode(', ', array_map('intval', $shop_ids)).')
         GROUP BY c.`id_contact`
         ORDER BY `name` ASC';
+
+   //p($sql);
      return Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sql);
    }
-   
+
+
+   public function getContact($objectid,$id_lang){
+
+    $shop_ids = Shop::getContextListShopID();
+    $sql = 'SELECT *
+        FROM `'._DB_PREFIX_.'contactstore` c
+        LEFT JOIN ps_contactstore_shop contact_shop ON (contact_shop.id_contact = c.id_contact AND contact_shop.id_shop = 1)
+        LEFT JOIN `'._DB_PREFIX_.'contactstore_lang` cl ON (c.`id_contact` = cl.`id_contact`)
+        WHERE cl.`id_lang` = '.(int)$id_lang.' AND c.`id_contact` = '. $objectid .'
+        AND contact_shop.`id_shop` IN ('.implode(', ', array_map('intval', $shop_ids)).')';
+
+   //p($sql);
+     return Db::getInstance(_PS_USE_SQL_SLAVE_)->getRow($sql);
+   }
 
 }
